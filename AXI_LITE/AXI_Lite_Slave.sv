@@ -43,10 +43,12 @@ module AXI_Lite_Slave (
     /***********************************************
     // Reg & Wire
     ***********************************************/
-    logic [31:0] slv_reg1;  // ADDR = 0x00
-    logic [31:0] slv_reg2;  // ADDR = 0x04
-    logic [31:0] slv_reg3;  // ADDR = 0x08
-    logic [31:0] slv_reg4;  // ADDR = 0x0c
+    logic [31:0] slv_reg1_reg, slv_reg1_next;  // ADDR = 0x00
+    logic [31:0] slv_reg2_reg, slv_reg2_next;  // ADDR = 0x04
+    logic [31:0] slv_reg3_reg, slv_reg3_next;  // ADDR = 0x08
+    logic [31:0] slv_reg4_reg, slv_reg4_next;  // ADDR = 0x0c
+    logic [3:0] aw_addr_reg, aw_addr_next;  // AWADDR Latching
+    logic [3:0] ar_addr_reg, ar_addr_next;  // ARADDR Latching
 
 
     /***********************************************
@@ -61,26 +63,30 @@ module AXI_Lite_Slave (
 
     always_ff @(posedge ACLK) begin
         if (!ARESETn) begin
-            aw_state <= AW_IDLE_S;
+            aw_state    <= AW_IDLE_S;
+            aw_addr_reg <= 0;
         end else begin
-            aw_state <= aw_state_next;
+            aw_state    <= aw_state_next;
+            aw_addr_reg <= aw_addr_next;
         end
     end
 
     always_comb begin
+        AWREADY       = 1'b0;
         aw_state_next = aw_state;
-        AWREADY = 1'b0;
+        aw_addr_next  = aw_addr_reg;
 
         case (aw_state)
             AW_IDLE_S: begin
                 AWREADY = 1'b0;
                 if (AWVALID) begin
                     aw_state_next = AW_READY_S;
+                    aw_addr_next  = AWADDR;
                 end
             end
 
             AW_READY_S: begin
-                AWREADY = 1'b1;
+                AWREADY       = 1'b1;
                 aw_state_next = AW_IDLE_S;
             end
         endcase
@@ -99,38 +105,47 @@ module AXI_Lite_Slave (
 
     always_ff @(posedge ACLK) begin
         if (!ARESETn) begin
-            w_state <= W_IDLE_S;
-            slv_reg1 = 32'b0;
-            slv_reg2 = 32'b0;
-            slv_reg3 = 32'b0;
-            slv_reg4 = 32'b0;
+            w_state      <= W_IDLE_S;
+            slv_reg1_reg <= 32'b0;
+            slv_reg2_reg <= 32'b0;
+            slv_reg3_reg <= 32'b0;
+            slv_reg4_reg <= 32'b0;
         end else begin
-            w_state <= w_state_next;
+            w_state      <= w_state_next;
+            slv_reg1_reg <= slv_reg1_next;
+            slv_reg2_reg <= slv_reg2_next;
+            slv_reg3_reg <= slv_reg3_next;
+            slv_reg4_reg <= slv_reg4_next;
         end
     end
 
     always_comb begin
-        w_state_next = w_state;
-        WREADY       = 1'b0;
-
+        WREADY        = 1'b0;
+        w_state_next  = w_state;
+        slv_reg1_next = slv_reg1_reg;
+        slv_reg2_next = slv_reg2_reg;
+        slv_reg3_next = slv_reg3_reg;
+        slv_reg4_next = slv_reg4_reg;
 
         case (w_state)
             W_IDLE_S: begin
                 WREADY = 1'b0;
-                if (WVALID) begin
+                if (AWVALID) begin
                     w_state_next = W_READY_S;
                 end
             end
 
             W_READY_S: begin
-                case (AWADDR)
-                    4'h0: slv_reg1 = WDATA;
-                    4'h4: slv_reg2 = WDATA;
-                    4'h8: slv_reg3 = WDATA;
-                    4'hc: slv_reg4 = WDATA;
-                endcase
-                WREADY       = 1'b1;
-                w_state_next = W_IDLE_S;
+                if (WVALID) begin
+                    WREADY       = 1'b1;
+                    w_state_next = W_IDLE_S;
+                    case (aw_addr_reg[3:2])
+                        2'd0: slv_reg1_next = WDATA;
+                        2'd1: slv_reg2_next = WDATA;
+                        2'd2: slv_reg3_next = WDATA;
+                        2'd3: slv_reg4_next = WDATA;
+                    endcase
+                end
             end
         endcase
     end
@@ -154,9 +169,9 @@ module AXI_Lite_Slave (
     end
 
     always_comb begin
-        b_state_next = b_state;
         BRESP        = 2'b0;
         BVALID       = 1'b0;
+        b_state_next = b_state;
 
         case (b_state)
             B_IDLE_S: begin
@@ -167,11 +182,9 @@ module AXI_Lite_Slave (
             end
 
             B_VALID_S: begin
-                BRESP  = 2'b0;
-                BVALID = 1'b1;
-                if (BVALID & BREADY) begin
-                    b_state_next = B_IDLE_S;
-                end
+                BRESP        = 2'b0;
+                BVALID       = 1'b1;
+                b_state_next = B_IDLE_S;
             end
         endcase
     end
@@ -188,26 +201,30 @@ module AXI_Lite_Slave (
 
     always_ff @(posedge ACLK) begin
         if (!ARESETn) begin
-            ar_state <= AR_IDLE_S;
+            ar_state    <= AR_IDLE_S;
+            ar_addr_reg <= 0;
         end else begin
-            ar_state <= ar_state_next;
+            ar_state    <= ar_state_next;
+            ar_addr_reg <= ar_addr_next;
         end
     end
 
     always_comb begin
+        ARREADY       = 1'b0;
         ar_state_next = ar_state;
-        ARREADY = 1'b0;
+        ar_addr_next  = ar_addr_reg;
 
         case (ar_state)
             AR_IDLE_S: begin
                 ARREADY = 1'b0;
                 if (ARVALID) begin
                     ar_state_next = AR_READY_S;
+                    ar_addr_next  = ARADDR;
                 end
             end
 
             AR_READY_S: begin
-                ARREADY = 1'b1;
+                ARREADY       = 1'b1;
                 ar_state_next = AR_IDLE_S;
             end
         endcase
@@ -232,10 +249,10 @@ module AXI_Lite_Slave (
     end
 
     always_comb begin
-        r_state_next = r_state;
         RDATA        = 32'bx;
         RVALID       = 1'b0;
         RRESP        = 2'b0;
+        r_state_next = r_state;
 
         case (r_state)
             R_IDLE_S: begin
@@ -246,14 +263,14 @@ module AXI_Lite_Slave (
             end
 
             R_VALID_S: begin
-                case (ARADDR)
-                    4'h0: RDATA = slv_reg1;
-                    4'h4: RDATA = slv_reg2;
-                    4'h8: RDATA = slv_reg3;
-                    4'hc: RDATA = slv_reg4;
-                endcase
-                RVALID = 1'b1;
                 RRESP  = 2'b0;
+                RVALID = 1'b1;
+                case (ar_addr_reg[3:2])
+                    2'd0: RDATA = slv_reg1_reg;
+                    2'd1: RDATA = slv_reg2_reg;
+                    2'd2: RDATA = slv_reg3_reg;
+                    2'd3: RDATA = slv_reg4_reg;
+                endcase
                 if (RVALID & RREADY) begin
                     r_state_next = R_IDLE_S;
                 end
