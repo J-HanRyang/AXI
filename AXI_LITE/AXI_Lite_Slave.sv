@@ -136,8 +136,8 @@ module AXI_Lite_Slave (
             end
 
             W_READY_S: begin
+                WREADY       = 1'b1;
                 if (WVALID) begin
-                    WREADY       = 1'b1;
                     w_state_next = W_IDLE_S;
                     case (aw_addr_reg[3:2])
                         2'd0: slv_reg1_next = WDATA;
