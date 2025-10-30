@@ -241,22 +241,22 @@ module AXI_Lite_Master (
     end
 
     always_comb begin
-        r_state_next = r_state;
         RREADY       = 1'b0;
-        rdata        = RDATA;
+        r_state_next = r_state;
         r_ready      = 1'b0;
+        rdata        = RDATA;
 
         case (r_state)
             R_IDLE_S: begin
                 RREADY = 1'b0;
-                if (RVALID) begin
+                if (ARVALID) begin
                     r_state_next = R_READY_S;
                 end
             end
 
             R_READY_S: begin
                 RREADY = 1'b1;
-                if (RVALID) begin
+                if (RVALID & RREADY) begin
                     r_state_next = R_IDLE_S;
                     r_ready      = 1'b1;
                     rdata        = RDATA;
