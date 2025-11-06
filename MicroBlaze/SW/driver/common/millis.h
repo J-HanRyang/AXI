@@ -2,7 +2,7 @@
  * millis.h
  *
  *  Created on: 2025. 11. 5.
- *      Author: kccistc
+ *      Author: Jiyun
  */
 
 #ifndef SRC_DRIVER_COMMON_MILLIS_H_

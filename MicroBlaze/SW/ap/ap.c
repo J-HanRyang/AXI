@@ -2,7 +2,7 @@
  * ap.c
  *
  *  Created on: 2025. 11. 4.
- *      Author: kccistc
+ *      Author: Jiyun
  */
 
 #include "ap.h"

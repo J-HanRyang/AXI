@@ -2,7 +2,7 @@
  * gpio.h
  *
  *  Created on: 2025. 11. 4.
- *      Author: kccistc
+ *      Author: Jiyun
  */
 
 #ifndef SRC_DEVICE_GPIO_GPIO_H_

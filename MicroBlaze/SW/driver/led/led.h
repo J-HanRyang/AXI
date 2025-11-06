@@ -2,7 +2,7 @@
  * led.h
  *
  *  Created on: 2025. 11. 4.
- *      Author: kccistc
+ *      Author: Jiyun
  */
 
 #ifndef SRC_DRIVER_LED_LED_H_

@@ -2,7 +2,7 @@
  * fnd.h
  *
  *  Created on: 2025. 11. 4.
- *      Author: kccistc
+ *      Author: Jiyun
  */
 
 #ifndef SRC_DRIVER_FND_FND_H_

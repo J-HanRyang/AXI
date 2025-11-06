@@ -2,7 +2,7 @@
  * ap.h
  *
  *  Created on: 2025. 11. 4.
- *      Author: kccistc
+ *      Author: Jiyun
  */
 
 #ifndef SRC_AP_AP_H_
@@ -12,7 +12,7 @@
 #include "../driver/fnd/fnd.h"
 #include "../driver/btn/btn.h"
 #include "../driver/common/millis.h"
-#include "Counter/Counter.h"
+#include "counter/counter.h"
 #include "powerInd/powerInd.h"
 
 void ap_main();

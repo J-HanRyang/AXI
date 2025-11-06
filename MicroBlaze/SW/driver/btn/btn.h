@@ -2,7 +2,7 @@
  * btn.h
  *
  *  Created on: 2025. 11. 5.
- *      Author: kccistc
+ *      Author: Jiyun
  */
 
 #ifndef SRC_DRIVER_BTN_BTN_H_

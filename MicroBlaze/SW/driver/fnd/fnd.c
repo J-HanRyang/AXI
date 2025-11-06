@@ -2,7 +2,7 @@
  * fnd.c
  *
  *  Created on: 2025. 11. 4.
- *      Author: kccistc
+ *      Author: Jiyun
  */
 
 #include "fnd.h"

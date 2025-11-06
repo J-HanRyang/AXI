@@ -2,7 +2,7 @@
  * powerInd.c
  *
  *  Created on: 2025. 11. 5.
- *      Author: kccistc
+ *      Author: Jiyun
  */
 
 #include "powerInd.h"
