@@ -8,9 +8,9 @@
 // Module Name      : I2C_Master
 // Target Devices   : Basys3
 // Tool Versions    : 2020.2
-// Description      :
+// Description      : I2C Master
 //
-// Revision 	    : 
+// Revision 	      : 2025/11/13    ADD Restart
 //////////////////////////////////////////////////////////////////////////////////
 
 
@@ -36,7 +36,9 @@ module I2C_Master #(
     output logic       oRx_Done,
     // Internal Signals
     output logic       oSCL,
-    inout  logic       ioSDA
+    inout  logic       ioSDA,
+    // State Checl
+    output logic [7:0] oLed
 );
 
     localparam CNT_MAX = (CLK_FREQ / (I2C_FREQ * 2));  // 500
@@ -91,6 +93,7 @@ module I2C_Master #(
     logic [7:0] rx_data_reg, rx_data_next;
     logic [CNT_COUNT_WIDTH-1 : 0] cnt_count_reg, cnt_count_next;
     logic [2:0] bit_count_reg, bit_count_next;
+    logic pending_start;
 
     // ACK
     logic ack_reg, ack_next;
@@ -108,10 +111,11 @@ module I2C_Master #(
             rx_data_reg   <= 0;
             cnt_count_reg <= 0;
             bit_count_reg <= 0;
-            sda_out_reg   <= 0;
+            sda_out_reg   <= 1;
             sda_oe_reg    <= 0;
             ack_reg       <= 0;
             send_nack_reg <= 0;
+            pending_start <= 0;
 
         end else begin
             state         <= state_next;
@@ -123,6 +127,9 @@ module I2C_Master #(
             sda_oe_reg    <= sda_oe_next;
             ack_reg       <= ack_next;
             send_nack_reg <= send_nack_next;
+
+            if (iI2C_Start) pending_start <= 1;
+            if (state == p_START_1) pending_start <= 0;
         end
     end
 
@@ -147,15 +154,17 @@ module I2C_Master #(
 
         case (state)
             p_IDLE: begin
-                if (iI2C_Start) begin
+                if (iI2C_Start || pending_start) begin
                     state_next = p_START_1;
+                    oLed       = 8'h01;
                 end
             end
 
             // START
             p_START_1: begin
-                sda_oe_next  = 1'b1;
-                sda_out_next = 1'b0;
+                sda_oe_next    = 1'b1;
+                sda_out_next   = 1'b0;
+                send_nack_next = 1'b0;
 
                 if (cnt_count_reg == (CNT_MAX - 1)) begin
                     state_next     = p_START_2;
@@ -167,6 +176,7 @@ module I2C_Master #(
                 oSCL         = 1'b0;
                 sda_oe_next  = 1'b1;
                 sda_out_next = 1'b0;
+                oLed         = 8'h02;
 
                 if (cnt_count_reg == (CNT_MAX - 1)) begin
                     state_next     = p_WRITE_DATA_1;
@@ -208,12 +218,20 @@ module I2C_Master #(
                     state_next     = p_WRITE_DATA_4;
                     cnt_count_next = 0;
                 end
+
             end
 
             p_WRITE_DATA_4: begin
-                oSCL         = 1'b0;
-                sda_oe_next  = 1'b1;
-                sda_out_next = tx_data_reg[7];
+                oSCL = 1'b0;
+
+                if (bit_count_reg == 7) begin
+                    sda_oe_next  = 1'b0;
+                    sda_out_next = 1'b1;  // pull-up
+
+                end else begin
+                    sda_oe_next  = 1'b1;
+                    sda_out_next = tx_data_reg[7];
+                end
 
                 if (cnt_count_reg == (CNT_MAX / 2 - 1)) begin
                     tx_data_next   = {tx_data_reg[6:0], 1'b0};
@@ -224,11 +242,10 @@ module I2C_Master #(
                         state_next     = p_ACK_1;
                     end else begin
                         bit_count_next = bit_count_reg + 1;
-                        state_next     = p_WRITE_DATA_1;
+                        state_next = p_WRITE_DATA_1;
                     end
                 end
             end
-
             // READ
             p_READ_DATA_1: begin
                 oSCL        = 1'b0;
@@ -245,15 +262,15 @@ module I2C_Master #(
                 sda_oe_next = 1'b0;
 
                 if (cnt_count_reg == (CNT_MAX / 2 - 1)) begin
-                    state_next     = p_READ_DATA_3;
                     cnt_count_next = 0;
+                    rx_data_next   = {rx_data_reg[6:0], sda_in};
+                    state_next     = p_READ_DATA_3;
                 end
             end
 
             p_READ_DATA_3: begin
-                oSCL         = 1'b1;
-                sda_oe_next  = 1'b0;
-                rx_data_next = {rx_data_reg[6:0], sda_in};
+                oSCL        = 1'b1;
+                sda_oe_next = 1'b0;
 
                 if (cnt_count_reg == (CNT_MAX / 2 - 1)) begin
                     state_next     = p_READ_DATA_4;
@@ -264,6 +281,7 @@ module I2C_Master #(
             p_READ_DATA_4: begin
                 oSCL        = 1'b0;
                 sda_oe_next = 1'b0;
+                oLed        = 8'h08;
 
                 if (cnt_count_reg == (CNT_MAX / 2 - 1)) begin
                     cnt_count_next = 0;
@@ -313,6 +331,7 @@ module I2C_Master #(
             p_ACK_4: begin
                 oSCL        = 1'b0;
                 sda_oe_next = 1'b0;
+                oLed        = 8'h10;
 
                 if (cnt_count_reg == (CNT_MAX / 2 - 1)) begin
                     cnt_count_next = 0;
@@ -330,7 +349,7 @@ module I2C_Master #(
             p_SEND_ACK_1: begin
                 oSCL         = 1'b0;
                 sda_oe_next  = 1'b1;
-                sda_out_next = send_nack_reg;
+                sda_out_next = !send_nack_reg;
 
                 if (cnt_count_reg == (CNT_MAX / 2 - 1)) begin
                     state_next     = p_SEND_ACK_2;
@@ -341,7 +360,7 @@ module I2C_Master #(
             p_SEND_ACK_2: begin
                 oSCL         = 1'b1;
                 sda_oe_next  = 1'b1;
-                sda_out_next = send_nack_reg;
+                sda_out_next = !send_nack_reg;
 
                 if (cnt_count_reg == (CNT_MAX / 2 - 1)) begin
                     state_next     = p_SEND_ACK_3;
@@ -352,7 +371,7 @@ module I2C_Master #(
             p_SEND_ACK_3: begin
                 oSCL         = 1'b1;
                 sda_oe_next  = 1'b1;
-                sda_out_next = send_nack_reg;
+                sda_out_next = !send_nack_reg;
 
                 if (cnt_count_reg == (CNT_MAX / 2 - 1)) begin
                     state_next     = p_SEND_ACK_4;
@@ -363,6 +382,7 @@ module I2C_Master #(
             p_SEND_ACK_4: begin
                 oSCL        = 1'b0;
                 sda_oe_next = 1'b0;
+                oLed        = 8'h20;
 
                 if (cnt_count_reg == (CNT_MAX / 2 - 1)) begin
                     cnt_count_next = 0;
@@ -379,24 +399,24 @@ module I2C_Master #(
 
             // HOLD
             p_HOLD: begin
-                oSCL         = 1'b0;
-                sda_out_next = 1'b0;
-                oTx_Ready    = 1'b1;
+                oSCL           = 1'b0;
+                sda_out_next   = 1'b0;
+                oTx_Ready      = 1'b1;
+                oLed           = 8'h30;
+                cnt_count_next = 0;
+                bit_count_next = 0;
 
-                if (iI2C_Write) begin
-                    state_next     = p_WRITE_DATA_1;
-                    tx_data_next   = iTx_Data;
-                    bit_count_next = 0;
-                    cnt_count_next = 0;
+                if (iI2C_Start) begin
+                    state_next = p_START_1;
+                end else if (iI2C_Write) begin
+                    state_next   = p_WRITE_DATA_1;
+                    tx_data_next = iTx_Data;
                 end else if (iI2C_Read) begin
                     state_next     = p_READ_DATA_1;
                     rx_data_next   = 0;
                     send_nack_next = iI2C_Stop;
-                    bit_count_next = 0;
-                    cnt_count_next = 0;
                 end else if (iI2C_Stop) begin
-                    state_next     = p_STOP_1;
-                    cnt_count_next = 0;
+                    state_next = p_STOP_1;
                 end
             end
 
@@ -415,10 +435,11 @@ module I2C_Master #(
             p_STOP_2: begin
                 oSCL        = 1'b1;
                 sda_oe_next = 1'b0;
+                oLed        = 8'h40;
 
                 if (cnt_count_reg == (CNT_MAX - 1)) begin
-                    state_next     = p_IDLE;
                     cnt_count_next = 0;
+                    state_next = p_IDLE;
                 end
             end
         endcase
